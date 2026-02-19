@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>ESP32 Solar Water Filtering System</title>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
+<style>
+/* NEW THEME - Dark Blue/Purple Theme */
+body{
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  color: #e6e6e9;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  margin: 0;
+  min-height: 100vh;
+}
+
+.header{
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
+  padding: 20px;
+  text-align: center;
+  font-size: 28px;
+  font-weight: bold;
+  border-bottom: 2px solid #4a2f8c;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+  letter-spacing: 1px;
+}
+
+.header span{
+  color: #9d7bf5;
+  margin: 0 10px;
+}
+
+.status{
+  text-align: center;
+  padding: 8px;
+  background: #2a1b4b;
+  font-size: 14px;
+  font-weight: 500;
+  border-bottom: 1px solid #4a2f8c;
+}
+
+.grid{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 22px;
+  padding: 25px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.card{
+  background: rgba(22, 26, 35, 0.8);
+  backdrop-filter: blur(8px);
+  padding: 22px;
+  border-radius: 20px;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(157, 123, 245, 0.2);
+  transition: transform 0.2s;
+}
+
+.card:hover{
+  transform: translateY(-5px);
+  border-color: rgba(157, 123, 245, 0.5);
+}
+
+.big{
+  font-size: 38px;
+  margin: 15px 0;
+  font-weight: bold;
+  background: linear-gradient(135deg, #9d7bf5, #6b4fb5);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.value-row{
+  display: flex;
+  justify-content: space-between;
+  margin: 12px 0;
+  padding: 10px 15px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Toggle Switch */
+.switch{
+  position: relative;
+  display: inline-block;
+  width: 70px;
+  height: 36px;
+}
+
+.switch input{
+  display: none;
+}
+
+.slider{
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: #3a2a5a;
+  border-radius: 34px;
+  transition: .3s;
+  border: 1px solid #6b4fb5;
+}
+
+.slider:before{
+  position: absolute;
+  content: "";
+  height: 28px;
+  width: 28px;
+  left: 4px;
+  bottom: 4px;
+  background: #9d7bf5;
+  border-radius: 50%;
+  transition: .3s;
+}
+
+input:checked + .slider{
+  background: #4a2f8c;
+}
+
+input:checked + .slider:before{
+  transform: translateX(34px);
+  background: #c3a9ff;
+}
+
+/* Buttons */
+.btn{
+  background: linear-gradient(135deg, #4a2f8c, #2a1b4b);
+  color: white;
+  border: 1px solid #6b4fb5;
+  padding: 10px 20px;
+  border-radius: 10px;
+  cursor: pointer;
+  margin-right: 10px;
+  font-weight: bold;
+  transition: all 0.2s;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.btn:hover{
+  background: linear-gradient(135deg, #5b3f9c, #3a2b5b);
+  transform: scale(1.02);
+  border-color: #9d7bf5;
+}
+
+.btn-off{
+  background: linear-gradient(135deg, #4a2a3a, #2a1a2a);
+  border-color: #a55f7b;
+}
+
+.btn-off:hover{
+  background: linear-gradient(135deg, #5a3a4a, #3a2a3a);
+}
+
+.btn-small{
+  background: #2a1b4b;
+  color: white;
+  border: 1px solid #9d7bf5;
+  padding: 5px 15px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 12px;
+  margin-left: 10px;
+}
+
+.btn-small:hover{
+  background: #4a2f8c;
+}
+
+/* Fault States */
+.fault-NORMAL{
+  color: #9d7bf5;
+  font-weight: bold;
+  font-size: 18px;
+  text-shadow: 0 0 10px rgba(157, 123, 245, 0.3);
+}
+
+.fault-LOW{
+  color: #f9a825;
+  font-weight: bold;
+  font-size: 18px;
+  text-shadow: 0 0 10px rgba(249, 168, 37, 0.3);
+}
+
+.fault-CRITICAL{
+  color: #ff6b6b;
+  font-weight: bold;
+  font-size: 18px;
+  text-shadow: 0 0 10px rgba(255, 107, 107, 0.3);
+}
+
+.fault-SOLAR{
+  color: #ff9f4b;
+  font-weight: bold;
+  font-size: 18px;
+  text-shadow: 0 0 10px rgba(255, 159, 75, 0.3);
+}
+
+/* Chart Container */
+.chart-container{
+  position: relative;
+  height: 300px;
+  width: 100%;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 15px;
+  padding: 15px;
+  border: 1px solid rgba(157, 123, 245, 0.2);
+}
+
+/* Table Styles */
+.table-container{
+  width: 100%;
+  overflow-x: auto;
+  margin-top: 15px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.2);
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+table{
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+th{
+  background: #4a2f8c;
+  color: white;
+  padding: 12px 8px;
+  text-align: left;
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+td{
+  padding: 10px 8px;
+  border-bottom: 1px solid rgba(157, 123, 245, 0.2);
+}
+
+tr:hover{
+  background: rgba(157, 123, 245, 0.1);
+}
+
+.fault-badge{
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: bold;
+}
+
+.badge-LOW{
+  background: #f9a825;
+  color: #000;
+}
+
+.badge-HIGH{
+  background: #ff6b6b;
+  color: #000;
+}
+
+.badge-WIRING{
+  background: #ff4b4b;
+  color: white;
+}
+
+.badge-DUST{
+  background: #ff9f4b;
+  color: #000;
+}
+
+.badge-REMINDER{
+  background: #9d7bf5;
+  color: white;
+}
+
+/* Loading spinner */
+.loading{
+  text-align: center;
+  padding: 20px;
+  color: #9d7bf5;
+}
+
+.spinner{
+  border: 3px solid rgba(157, 123, 245, 0.3);
+  border-top: 3px solid #9d7bf5;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  animation: spin 1s linear infinite;
+  margin: 10px auto;
+}
+
+@keyframes spin{
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Section header */
+.section-header{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 15px;
+}
+
+.last-updated{
+  font-size: 12px;
+  color: #9d7bf5;
+  opacity: 0.8;
+}
+
+/* Icons */
+.pump-icon, .water-icon{
+  font-size: 24px;
+  margin-right: 10px;
+  vertical-align: middle;
+  filter: drop-shadow(0 0 8px #9d7bf5);
+}
+</style>
+</head>
+
+<body>
+<div class="header">
+  <span>💧</span> ESP32 SOLAR WATER FILTERING <span>🌊</span>
+</div>
+<div id="statusBar" class="status">CONNECTING TO SYSTEM...</div>
+
+<div class="grid">
+  <!-- Filter Pump Control Card -->
+  <div class="card">
+    <h3><span class="pump-icon">⛲</span> Filter Pump Control</h3>
+    <div class="value-row">
+      <span><span class="water-icon">💧</span> Pump Switch:</span>
+      <label class="switch">
+        <input type="checkbox" id="relaySwitch" onchange="toggleRelay(this)">
+        <span class="slider"></span>
+      </label>
+    </div>
+    <div class="value-row">
+      <span><span class="water-icon">⚡</span> Pump Status:</span>
+      <span id="relayStateDisplay" style="font-weight:bold; color:#9d7bf5;">OFF</span>
+    </div>
+    <div class="value-row" style="justify-content: center; gap: 15px;">
+      <button class="btn" onclick="setRelay(true)">💧 START FILTER</button>
+      <button class="btn btn-off" onclick="setRelay(false)">⏹️ STOP FILTER</button>
+    </div>
+    <div id="commandMsg" style="color:#9d7bf5; font-size:12px; margin-top:5px; text-align:center;"></div>
+  </div>
+
+  <!-- Battery Card -->
+  <div class="card">
+    <h3>🔋 Battery Voltage</h3>
+    <div id="batteryValue" class="big">--.-- V</div>
+    <div id="faultStatus" class="fault-NORMAL">NORMAL</div>
+  </div>
+
+  <!-- Solar Card -->
+  <div class="card">
+    <h3>☀️ Solar Panel Voltage</h3>
+    <div id="solarValue" class="big">--.-- V</div>
+    <div id="solarCondition">--</div>
+  </div>
+
+  <!-- Pump Status Card -->
+  <div class="card">
+    <h3>⛲ Filter Pump Information</h3>
+    <div class="value-row">
+      <span><span class="water-icon">⏱️</span> Runtime Today:</span>
+      <span id="pumpRuntime">0 min</span>
+    </div>
+    <div class="value-row">
+      <span><span class="water-icon">🔄</span> Cycles Today:</span>
+      <span id="pumpCycles">0</span>
+    </div>
+    <div class="value-row">
+      <span><span class="water-icon">⏰</span> Last Started:</span>
+      <span id="pumpLastStart">--:--</span>
+    </div>
+  </div>
+
+  <!-- COMBINED GRAPH -->
+  <div class="card" style="grid-column: 1 / -1;">
+    <div class="section-header">
+      <h3>📊 System Performance History</h3>
+      <span class="last-updated" id="chartLastUpdated"></span>
+    </div>
+    <div class="chart-container">
+      <canvas id="combinedChart"></canvas>
+    </div>
+    <div style="display:flex; justify-content:center; gap:30px; margin-top:15px;">
+      <div><span style="color:#9d7bf5;">●</span> Battery Voltage (V)</div>
+      <div><span style="color:#f9a825;">●</span> Solar Voltage (V)</div>
+      <div><span style="color:#00c853;" id="pumpIndicator">●</span> <span id="pumpIndicatorText">Filter OFF</span></div>
+    </div>
+  </div>
+
+  <!-- GOOGLE SHEETS FAULT LOG TABLE - EMBEDDED -->
+  <div class="card" style="grid-column: 1 / -1;">
+    <div class="section-header">
+      <h3>📋 Google Sheets Fault Log</h3>
+      <div>
+        <button class="btn-small" onclick="refreshSheetData()">↻ Refresh</button>
+        <span class="last-updated" id="sheetLastUpdated"></span>
+      </div>
+    </div>
+    
+    <!-- Loading indicator -->
+    <div id="sheetLoading" class="loading" style="display: none;">
+      <div class="spinner"></div>
+      Loading fault data from Google Sheets...
+    </div>
+    
+    <!-- Table container -->
+    <div class="table-container" id="tableContainer">
+      <table id="faultTable">
+        <thead>
+          <tr>
+            <th>Timestamp</th>
+            <th>Fault Type</th>
+            <th>Value</th>
+            <th>Message</th>
+            <th>Device</th>
+          </tr>
+        </thead>
+        <tbody id="faultTableBody">
+          <tr><td colspan="5" style="text-align:center; padding:20px;">Loading fault data...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+// Firebase config
+const firebaseConfig = {
+  apiKey: "AIzaSyCkmuTiwSxHQ6_gKjpqYS357MlCLM9rp1k",
+  authDomain: "solar-fault-detection-ecf01.firebaseapp.com",
+  databaseURL: "https://solar-fault-detection-ecf01-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "solar-fault-detection-ecf01",
+  storageBucket: "solar-fault-detection-ecf01.firebasestorage.app",
+  messagingSenderId: "370792337840",
+  appId: "1:370792337840:web:9619f4b0be5c435f750675"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const solarRef = db.ref("solar_system");
+
+// ============= EMBEDDED GOOGLE SHEETS CSV URL =============
+// Replace this URL with your actual Google Sheets CSV URL
+const GOOGLE_SHEETS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS2XBzdxcKafuTJT8c_7Ec8vj_TjuxRF6J2UsXA8phw-BmC0g7eFZpcuAs_dvLUyhDBh031I8VXzDw-/pub?output=csv";
+
+// Pump tracking
+let pumpStartTime = null;
+let totalRuntime = 0;
+let pumpCycles = 0;
+let lastPumpState = false;
+
+// Chart data
+let timeLabels = [];
+let batteryData = [];
+let solarData = [];
+
+// Connection status
+db.ref(".info/connected").on("value", (snap) => {
+  const statusEl = document.getElementById("statusBar");
+  if (snap.val()) {
+    statusEl.innerHTML = "✅ CONNECTED TO SYSTEM";
+    statusEl.style.background = "#2a1b4b";
+  } else {
+    statusEl.innerHTML = "❌ DISCONNECTED";
+    statusEl.style.background = "#4a2a3a";
+  }
+});
+
+// Initialize chart
+const ctx = document.getElementById("combinedChart").getContext("2d");
+
+const combinedChart = new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels: timeLabels,
+    datasets: [
+      {
+        label: 'Battery Voltage (V)',
+        data: batteryData,
+        borderColor: '#9d7bf5',
+        backgroundColor: 'rgba(157, 123, 245, 0.1)',
+        borderWidth: 3,
+        tension: 0.3,
+        fill: false,
+        pointRadius: 5,
+        pointHoverRadius: 10,
+        pointBackgroundColor: '#9d7bf5',
+        pointBorderColor: 'white',
+        pointHoverBackgroundColor: 'white',
+        pointHoverBorderColor: '#9d7bf5',
+        yAxisID: 'y'
+      },
+      {
+        label: 'Solar Voltage (V)',
+        data: solarData,
+        borderColor: '#f9a825',
+        backgroundColor: 'rgba(249, 168, 37, 0.1)',
+        borderWidth: 3,
+        tension: 0.3,
+        fill: false,
+        pointRadius: 5,
+        pointHoverRadius: 10,
+        pointBackgroundColor: '#f9a825',
+        pointBorderColor: 'white',
+        pointHoverBackgroundColor: 'white',
+        pointHoverBorderColor: '#f9a825',
+        yAxisID: 'y'
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      tooltip: {
+        enabled: true,
+        backgroundColor: '#1a1a2e',
+        titleColor: '#9d7bf5',
+        bodyColor: 'white',
+        borderColor: '#9d7bf5',
+        borderWidth: 2
+      },
+      legend: { display: false }
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        max: 20,
+        grid: { color: 'rgba(157, 123, 245, 0.1)' },
+        ticks: { color: 'white' }
+      },
+      x: {
+        grid: { color: 'rgba(157, 123, 245, 0.1)' },
+        ticks: { color: 'white', maxRotation: 45 }
+      }
+    }
+  }
+});
+
+// ============= GOOGLE SHEETS FUNCTIONS =============
+
+// Load sheet data from embedded URL
+async function loadSheetData() {
+  document.getElementById('sheetLoading').style.display = 'block';
+  document.getElementById('faultTableBody').innerHTML = '';
+  
+  try {
+    // Fetch the CSV data
+    const response = await fetch(GOOGLE_SHEETS_CSV_URL);
+    const csvData = await response.text();
+    
+    // Parse CSV using PapaParse
+    Papa.parse(csvData, {
+      header: true,
+      skipEmptyLines: true,
+      complete: function(results) {
+        displaySheetData(results.data);
+        document.getElementById('sheetLastUpdated').innerHTML = 
+          'Updated: ' + new Date().toLocaleTimeString();
+      },
+      error: function(error) {
+        console.error('Parse error:', error);
+        document.getElementById('faultTableBody').innerHTML = 
+          '<tr><td colspan="5" style="text-align:center; padding:20px; color:#ff6b6b;">Error parsing sheet data</td></tr>';
+      }
+    });
+    
+  } catch (error) {
+    console.error('Fetch error:', error);
+    document.getElementById('faultTableBody').innerHTML = 
+      '<tr><td colspan="5" style="text-align:center; padding:20px; color:#ff6b6b;">Error loading sheet: ' + error.message + '</td></tr>';
+  } finally {
+    document.getElementById('sheetLoading').style.display = 'none';
+  }
+}
+
+// Display sheet data in table
+function displaySheetData(rows) {
+  const tbody = document.getElementById('faultTableBody');
+  
+  if (!rows || rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px;">No fault data found</td></tr>';
+    return;
+  }
+  
+  // Filter out empty rows and reverse to show newest first
+  const validRows = rows.filter(row => row.Timestamp && row['Fault Type']).reverse();
+  
+  if (validRows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px;">No valid fault data</td></tr>';
+    return;
+  }
+  
+  let html = '';
+  validRows.forEach(row => {
+    // Get badge class based on fault type
+    let badgeClass = 'badge-';
+    const faultType = row['Fault Type'] || '';
+    
+    if (faultType.includes('LOW')) badgeClass += 'LOW';
+    else if (faultType.includes('HIGH')) badgeClass += 'HIGH';
+    else if (faultType.includes('WIRING')) badgeClass += 'WIRING';
+    else if (faultType.includes('DUST')) badgeClass += 'DUST';
+    else if (faultType.includes('REMINDER')) badgeClass += 'REMINDER';
+    else badgeClass += 'LOW';
+    
+    html += `<tr>
+      <td>${row.Timestamp || '--'}</td>
+      <td><span class="fault-badge ${badgeClass}">${faultType}</span></td>
+      <td>${row['Value (V)'] || row.Value || '--'}</td>
+      <td>${row.Message || '--'}</td>
+      <td>${row['Device ID'] || 'ESP32'}</td>
+    </tr>`;
+  });
+  
+  tbody.innerHTML = html;
+}
+
+// Refresh sheet data
+function refreshSheetData() {
+  loadSheetData();
+}
+
+// Load sheet data on startup
+loadSheetData();
+
+// Auto-refresh sheet every 5 minutes
+setInterval(() => {
+  refreshSheetData();
+}, 300000);
+
+// ============= FIREBASE REAL-TIME DATA =============
+
+solarRef.on("value", (snapshot) => {
+  const data = snapshot.val();
+  if (!data) return;
+  
+  // Update battery
+  const batteryVoltage = data.battery_voltage || 0;
+  document.getElementById("batteryValue").innerHTML = batteryVoltage.toFixed(2) + " V";
+  
+  // Update solar
+  const solarVoltage = data.solar_voltage || 0;
+  document.getElementById("solarValue").innerHTML = solarVoltage.toFixed(2) + " V";
+  
+  // Solar condition
+  let solarCondition = "Night";
+  if (solarVoltage > 12) solarCondition = "☀️ Strong";
+  else if (solarVoltage > 5) solarCondition = "⛅ Weak";
+  else if (solarVoltage > 1) solarCondition = "🌙 Dawn/Dusk";
+  document.getElementById("solarCondition").innerHTML = solarCondition;
+  
+  // Update pump state
+  const pumpState = data.relay_state || false;
+  
+  document.getElementById("relaySwitch").checked = pumpState;
+  document.getElementById("relayStateDisplay").innerHTML = pumpState ? "RUNNING" : "STOPPED";
+  document.getElementById("relayStateDisplay").style.color = pumpState ? "#9d7bf5" : "#ff6b6b";
+  
+  // Update pump indicator
+  const pumpIndicator = document.getElementById("pumpIndicator");
+  const pumpIndicatorText = document.getElementById("pumpIndicatorText");
+  if (pumpState) {
+    pumpIndicator.style.color = "#9d7bf5";
+    pumpIndicatorText.innerHTML = "Filter RUNNING";
+    pumpIndicatorText.style.color = "#9d7bf5";
+  } else {
+    pumpIndicator.style.color = "#ff6b6b";
+    pumpIndicatorText.innerHTML = "Filter OFF";
+    pumpIndicatorText.style.color = "#ff6b6b";
+  }
+  
+  // Track pump runtime
+  if (pumpState && !lastPumpState) {
+    pumpStartTime = Date.now();
+    pumpCycles++;
+    document.getElementById("pumpLastStart").innerHTML = new Date().toLocaleTimeString();
+  } else if (!pumpState && lastPumpState && pumpStartTime) {
+    const runtime = Math.round((Date.now() - pumpStartTime) / 60000);
+    totalRuntime += runtime;
+    pumpStartTime = null;
+  }
+  
+  if (pumpState && pumpStartTime) {
+    const currentRuntime = Math.round((Date.now() - pumpStartTime) / 60000);
+    document.getElementById("pumpRuntime").innerHTML = (totalRuntime + currentRuntime) + " min";
+  } else {
+    document.getElementById("pumpRuntime").innerHTML = totalRuntime + " min";
+  }
+  
+  document.getElementById("pumpCycles").innerHTML = pumpCycles;
+  lastPumpState = pumpState;
+  
+  // Update fault display
+  const faultMsg = data.fault_status || "NORMAL";
+  const faultEl = document.getElementById("faultStatus");
+  faultEl.innerHTML = faultMsg;
+  
+  if (faultMsg.includes("WIRING")) {
+    faultEl.className = "fault-CRITICAL";
+  } else if (faultMsg.includes("DUST")) {
+    faultEl.className = "fault-SOLAR";
+  } else if (faultMsg.includes("LOW")) {
+    faultEl.className = "fault-LOW";
+  } else if (faultMsg.includes("HIGH")) {
+    faultEl.className = "fault-CRITICAL";
+  } else {
+    faultEl.className = "fault-NORMAL";
+  }
+  
+  // Add to history chart
+  const time = new Date().toLocaleTimeString();
+  timeLabels.push(time);
+  batteryData.push(batteryVoltage);
+  solarData.push(solarVoltage);
+  
+  if (timeLabels.length > 20) {
+    timeLabels.shift();
+    batteryData.shift();
+    solarData.shift();
+  }
+  
+  document.getElementById('chartLastUpdated').innerHTML = 'Updated: ' + time;
+  combinedChart.update();
+});
+
+// ============= PUMP CONTROL =============
+
+function toggleRelay(switchEl) {
+  setRelay(switchEl.checked);
+}
+
+function setRelay(state) {
+  solarRef.update({ 
+    relay_state: state,
+    timestamp: firebase.database.ServerValue.TIMESTAMP 
+  })
+  .then(() => {
+    document.getElementById("commandMsg").innerHTML = "✓ Filter " + (state ? "STARTED" : "STOPPED");
+    setTimeout(() => document.getElementById("commandMsg").innerHTML = "", 2000);
+  })
+  .catch(error => {
+    document.getElementById("commandMsg").innerHTML = "✗ Error: " + error.message;
+  });
+}
+</script>
+</body>
+</html>
