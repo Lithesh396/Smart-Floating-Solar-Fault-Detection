@@ -9,7 +9,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 
 <style>
-/* NEW THEME - Dark Blue/Purple Theme */
+/* Your existing styles remain exactly the same */
 body{
   background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
   color: #e6e6e9;
@@ -445,22 +445,23 @@ tr:hover{
 <script>
 // Firebase config
 const firebaseConfig = {
-  apiKey: "AIzaSyCkmuTiwSxHQ6_gKjpqYS357MlCLM9rp1k",
-  authDomain: "solar-fault-detection-ecf01.firebaseapp.com",
-  databaseURL: "https://solar-fault-detection-ecf01-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "solar-fault-detection-ecf01",
-  storageBucket: "solar-fault-detection-ecf01.firebasestorage.app",
-  messagingSenderId: "370792337840",
-  appId: "1:370792337840:web:9619f4b0be5c435f750675"
+  apiKey: "AIzaSyAJ6ilVdhyEp8g8JDarxCVl7Yp954q_5UU",
+  authDomain: "solar-fault-detection-2d4be.firebaseapp.com",
+  databaseURL: "https://solar-fault-detection-2d4be-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "solar-fault-detection-2d4be",
+  storageBucket: "solar-fault-detection-2d4be.firebasestorage.app",
+  messagingSenderId: "370847000132",
+  appId: "1:370847000132:web:85d1784c0294eb0489be11"
 };
 
+// FIXED: Use firebase.initializeApp instead of initializeApp
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 const solarRef = db.ref("solar_system");
 
 // ============= EMBEDDED GOOGLE SHEETS CSV URL =============
 // Replace this URL with your actual Google Sheets CSV URL
-const GOOGLE_SHEETS_CSV_URL = "https://script.google.com/macros/s/AKfycbwllxKyW-HOJk-4dx9TZuJYm8IXVQUDnEA8qx_Xf8s1idgvEIH6Bm7H4dWqn5Hsomxatg/exec";
+const GOOGLE_SHEETS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQJ3VjouHXMQ8Q9OQsyd9YbdfH1iHT1geWDN3B0NP5JWXkDpTqjzXeNl_yMolHgngqpgT-uarpkiEze/pub?output=csv";
 
 // Pump tracking
 let pumpStartTime = null;
@@ -652,7 +653,12 @@ setInterval(() => {
 
 solarRef.on("value", (snapshot) => {
   const data = snapshot.val();
-  if (!data) return;
+  if (!data) {
+    console.log("No data received from Firebase");
+    return;
+  }
+  
+  console.log("Firebase data received:", data); // Debug log
   
   // Update battery
   const batteryVoltage = data.battery_voltage || 0;
@@ -760,6 +766,7 @@ function setRelay(state) {
   })
   .catch(error => {
     document.getElementById("commandMsg").innerHTML = "✗ Error: " + error.message;
+    console.error("Firebase update error:", error);
   });
 }
 </script>
